@@ -10,9 +10,13 @@ import { TopoJSONToLineString, coordinatesAreEqual } from "./utils";
 import "./map.css";
 
 /**
- *
  * Edge cases to fix:
  *
+ *  Deleting node that has 2 shared verticies in same feature.
+ *
+ * TODO: The utility function to tell if point are the same vertex needs to become more sophisticated.
+ *        To ensure some reliability, it checks to the tenths decimal point on longitude and latitude.
+ *        This might be acceptable, unless someone wants to create a column with incredible granularity.
  */
 
 // Topojson
@@ -67,12 +71,51 @@ export function Map() {
 
     map.addControl(nav);
 
-    const MultipleVerticiesClick = MapboxDraw.modes.simple_select;
+    const MultVertSimpleSelect = MapboxDraw.modes.simple_select;
+    const MultVertDirectSelect = MapboxDraw.modes.direct_select;
+
+    MultVertDirectSelect.onDrag = function(state, e) {
+      if (state.canDragMove !== true) return;
+      state.dragMoving = true;
+      e.originalEvent.stopPropagation();
+
+      console.log(e);
+
+      const delta = {
+        lng: e.lngLat.lng - state.dragMoveLocation.lng,
+        lat: e.lngLat.lat - state.dragMoveLocation.lat,
+      };
+      if (state.selectedCoordPaths.length > 0) this.dragVertex(state, e, delta);
+      else this.dragFeature(state, e, delta);
+
+      state.dragMoveLocation = e.lngLat;
+
+      if (movedCoordPath) {
+        let newCoord = [e.lngLat.lng, e.lngLat.lat];
+
+        if (sameFeature) {
+          //logic for if multiple verticies, same point, same feature
+          let coordsToChange = [...toMoveFeature.coordinates];
+          toMoveCoordPath.map((coordPath) => {
+            coordsToChange.splice(coordPath, 1, newCoord);
+          });
+          toMoveFeature.setCoordinates(coordsToChange);
+        } else {
+          // different features, works for more than 2 shared vertices
+          toMoveFeature.map((feature, index) => {
+            let coordsToChange = [...feature.coordinates];
+            coordsToChange.splice(toMoveCoordPath[index], 1, newCoord);
+            feature.setCoordinates(coordsToChange);
+          });
+        }
+      }
+    };
 
     // need to just pass off it there aren't other verticies at point
-    MultipleVerticiesClick.clickOnVertex = function(state, e) {
-      console.log(e);
-      console.log(this._ctx);
+    MultVertSimpleSelect.clickOnVertex = function(state, e) {
+      console.log("mult_vert clicked vertix");
+      //console.log(e);
+      //console.log(this._ctx);
 
       // this block gets features other than the clicked one at point
       var point = map.project(e.lngLat);
@@ -86,6 +129,7 @@ export function Map() {
       features = features.filter((f) => f != null && f.id != currentId); // this will return the other vertix
 
       if (features.length > 0) {
+        console.log("Theres a Shared vertix!!");
         movedCoordPath = e.featureTarget.properties.coord_path;
 
         const coords = [...targetCoords];
@@ -112,10 +156,10 @@ export function Map() {
             coordPaths.push(index);
           }
         });
-        if (truthy.length > 0) {
+        if (truthy.length > 1) {
+          //there will always be at least 1 point the same
           // need to set to moveId to an array of the pathcoords that are the same
           console.log("More than one!!");
-          console.log(coordPaths);
           toMoveCoordPath = coordPaths;
           toMoveFeature = currentFeature;
           movedCoordPath = e.featureTarget.properties.coord_path;
@@ -124,7 +168,7 @@ export function Map() {
       }
 
       // this is what the normal simple_select does, we want to keep that the same
-      this.changeMode("direct_select", {
+      this.changeMode("mult_vert_direct", {
         featureId: e.featureTarget.properties.parent,
         coordPath: e.featureTarget.properties.coord_path,
         startPos: e.lngLat,
@@ -137,7 +181,8 @@ export function Map() {
       defaultMode: "mult_vert",
       modes: Object.assign(
         {
-          mult_vert: MultipleVerticiesClick,
+          mult_vert_direct: MultVertDirectSelect,
+          mult_vert: MultVertSimpleSelect,
         },
         MapboxDraw.modes
       ),
@@ -152,37 +197,31 @@ export function Map() {
       setZoom(map.getZoom().toFixed(2));
     });
 
-    map.on("draw.trash", function(e) {
-      console.log("trash");
-      console.log(e);
-    });
-
-    // maybe a custom editing that checks if there is another vertix at same point, and also select
-    // that one.
     // use the splice to replace coords
     // This needs to account for deleteing nodes. That falls under change_coordinates
     map.on("draw.update", function(e) {
-      console.log(toMoveCoordPath);
-      console.log(toMoveFeature);
+      console.log(Draw.getMode());
 
-      let newCoord = e.features[0].geometry.coordinates[movedCoordPath];
+      if (movedCoordPath) {
+        let newCoord = e.features[0].geometry.coordinates[movedCoordPath];
 
-      if (sameFeature) {
-        //logic for if multiple verticies, same point, same feature
-        let coordsToChange = [...toMoveFeature.coordinates];
-        toMoveCoordPath.map((coordPath) => {
-          coordsToChange.splice(coordPath, 1, newCoord);
-        });
-        toMoveFeature.setCoordinates(coordsToChange);
-      } else {
-        // different features, need to adjust for triple junction
-        toMoveFeature.map((feature, index) => {
-          let coordsToChange = [...feature.coordinates];
-          coordsToChange.splice(toMoveCoordPath[index], 1, newCoord);
-          feature.setCoordinates(coordsToChange);
-        });
+        if (sameFeature) {
+          //logic for if multiple verticies, same point, same feature
+          let coordsToChange = [...toMoveFeature.coordinates];
+          toMoveCoordPath.map((coordPath) => {
+            coordsToChange.splice(coordPath, 1, newCoord);
+          });
+          toMoveFeature.setCoordinates(coordsToChange);
+        } else {
+          // different features, works for more than 2 shared vertices
+          toMoveFeature.map((feature, index) => {
+            let coordsToChange = [...feature.coordinates];
+            coordsToChange.splice(toMoveCoordPath[index], 1, newCoord);
+            feature.setCoordinates(coordsToChange);
+          });
+        }
       }
-
+      Draw.changeMode("mult_vert", [e.features[0].id]);
       // reset the state to undefined
       toMoveCoordPath = undefined;
       toMoveFeature = undefined;
