@@ -1,5 +1,5 @@
 ## Test import script
-from importer import ProjectImporter, Project
+from project import Project
 from utils import run_docker_config
 from database import Database
 import simplejson
@@ -13,10 +13,10 @@ def is_json(myjson):
   return True
 
 if __name__ == "__main__":
-    # ids = [6]
-    # for i in ids:
-    #     project = Project(i)
-    #     project.remove_project()
+    ids = [1,10]
+    for i in ids:
+        project = Project(i)
+        project.remove_project()
     
 
     
@@ -34,47 +34,3 @@ if __name__ == "__main__":
     # cols = df.to_dict(orient="records")
     # cols = json.loads(simplejson.dumps(cols, ignore_nan=True))
     # print(cols)
-
-    data = '''{
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              66.796875,
-              54.97761367069628
-            ],
-            [
-              73.125,
-              43.58039085560784
-            ],
-            [
-              96.328125,
-              51.39920565355378
-            ],
-            [
-              96.328125,
-              57.136239319177434
-            ],
-            [
-              76.640625,
-              60.06484046010452
-            ],
-            [
-              66.796875,
-              54.97761367069628
-            ]
-          ]
-        ]
-    }'''
-    
-    location_parser = "ST_GeomFromText(%(location)s)"
-    if is_json(data):
-        location_parser = "ST_GeomFromGeoJSON(%(location)s)"
-    
-    sql = f"SELECT ST_AsGeoJSON(ST_Multi((ST_Dump(ST_Boundary({location_parser}))).geom))"
-
-    db = Database()
-    df = db.exec_query(sql, params={'location':data}) 
-    location = df.to_dict(orient="records")[0]['st_asgeojson']
-
-    print(location)

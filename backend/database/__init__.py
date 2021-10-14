@@ -20,6 +20,7 @@ on_project_insert_sql = procedures / "on_project_insert.sql"
 redump_linework_sql = procedures / "redump-linework-from-edge-data.sql"
 remove_project_schema = procedures / "remove_project_schema.sql"
 project_info_insert = procedures / "project-meta-insert.sql"
+project_table = fixtures / "projects_table.sql"
 
 class Database:
     """ 
@@ -28,7 +29,7 @@ class Database:
 
     def __init__(self, project = None):
         self.project_id = getattr(project, "id", None)
-        self.engine = create_engine("postgresql://postgres@localhost:54321/geologic_map", echo=True)
+        self.engine = create_engine("postgresql://postgres@db/geologic_map", echo=True)
         self.Session = sessionmaker(bind=self.engine)
         self.config = config_check(project)
         self.formatter = SqlFormatter(self.project_id)
@@ -60,6 +61,10 @@ class Database:
             sql = self.formatter.sql_config_format(sql, self.config)
 
         return read_sql(sql, self.engine, **kwargs)
+    
+    #################### db initialization methods ##########################
+    def create_project_table(self):
+        self.run_sql_file(project_table)
               
     #################### db procedure methods ###############################
     def create_project_schema(self):
@@ -76,6 +81,11 @@ class Database:
     
     def insert_project_info(self, params={}):
         self.run_sql_file(project_info_insert, params=params)
+    
+    def insert_project_column_group(self, params={}):
+        sql = """INSERT INTO ${project_schema}.column_groups(col_group_id, col_group, col_group_name) VALUES(
+            :col_group_id, :col_group, :col_group_name);"""
+        self.run_sql(sql, params)
 
     def on_project_insert(self):
         self.run_sql_file(on_project_insert_sql)
@@ -119,13 +129,16 @@ class Database:
     def get_next_col_group_id(self):
         """ function to get the next project id that won't conflict with macrostrat """
         # TODO: unhardcode the max int for project id
-        sql = '''SELECT max(col_group_id), 'imported' origin from column_groups WHERE col_group_id < 5000
+        # WARNING: Now this isn't going to be conflict free. Because we split the tables up
+        sql = '''SELECT max(col_group_id), 'imported' origin from ${project_schema}.column_groups WHERE col_group_id < 5000
                  UNION ALL
-                 SELECT max(col_group_id), 'all' origin from column_groups;'''
+                 SELECT max(col_group_id), 'all' origin from ${project_schema}.column_groups;'''
 
         data = self.exec_query(sql).to_dict(orient='records')
         imported_max_id = data[0]['max']
         all_max_id = data[1]['max']
+        if imported_max_id is None or all_max_id is None:
+            return 5000
         if imported_max_id == all_max_id:
             return imported_max_id + 5000
         else:
