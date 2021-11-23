@@ -33,7 +33,9 @@ MultVertDirectSelect.onSetup = function(opts) {
     movedCoordPath,
     toMoveCoordPaths,
     toMoveFeatures,
+    newCoord: undefined,
   };
+  console.log("DIRECT SELECT", state);
 
   this.setSelectedCoordinates(
     this.pathsToCoordinates(featureId, state.selectedCoordPaths)
@@ -62,13 +64,14 @@ MultVertDirectSelect.onDrag = function(state, e) {
   state.dragMoveLocation = e.lngLat;
 
   let newCoord = [e.lngLat.lng, e.lngLat.lat];
-
+  state.newCoord = newCoord;
   // different features, works for more than 2 shared vertices
+  // now lists of line strings
   if (state.toMoveFeatures) {
     state.toMoveFeatures.map((feature, index) => {
-      let coordsToChange = [...feature.coordinates];
-      coordsToChange.splice(state.toMoveCoordPaths[index], 1, newCoord);
-      feature.setCoordinates(coordsToChange);
+      const path = state.toMoveCoordPaths[index];
+      let [lng, lat] = newCoord;
+      feature.updateCoordinate(path, lng, lat);
     });
   }
 };
@@ -79,30 +82,20 @@ MultVertDirectSelect.onDrag = function(state, e) {
  */
 MultVertDirectSelect.onDragChangeSetAdder = function(feature) {
   const action = Constants.updateActions.CHANGE_COORDINATES;
-  const geometry = {
-    coordinates: feature.coordinates,
-    type: feature.type,
-  };
   const obj = {
     action,
-    feature: {
-      id: feature.id,
-      geometry,
-      properties: feature.properties,
-      type: "Feature",
-    },
+    feature: feature.toGeoJSON(),
   };
   this.map.addToChangeSet(obj);
 };
 
 MultVertDirectSelect.onStop = function(state) {
-  if (state.movedCoordPath) {
-    let newCoord = state.feature.coordinates[state.movedCoordPath];
+  if (state.movedCoordPath && state.newCoord) {
     // different features, works for more than 2 shared vertices
     state.toMoveFeatures.map((feature, index) => {
-      let coordsToChange = [...feature.coordinates];
-      coordsToChange.splice(state.toMoveCoordPaths[index], 1, newCoord);
-      feature.setCoordinates(coordsToChange);
+      let path = state.toMoveCoordPaths[index];
+      let [lng, lat] = state.newCoord;
+      feature.updateCoordinate(path, lng, lat);
       this.onDragChangeSetAdder(feature);
     });
   } else {
@@ -132,7 +125,7 @@ MultVertDirectSelect.onTrash = function(state) {
     }
   } else {
     /// we only want to delete the one point..
-    const pointId = parseInt(state.selectedCoordPaths[0]);
+    const pointId = state.selectedCoordPaths[0];
     state.feature.removeCoordinate(pointId);
   }
 };
