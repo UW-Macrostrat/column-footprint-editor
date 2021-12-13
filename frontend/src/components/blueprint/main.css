@@ -28,12 +28,33 @@
 
 .nav-contents {
   display: flex;
-  justify-content: space-evenly;
   align-items: center;
+  justify-content: space-between;
   padding-top: 10px;
 }
 
 .toolbar {
   max-width: 300px;
   margin-top: 5px;
+}
+.nav-right,
+.nav-left {
+  display: flex;
+  align-items: center;
+}
+
+.panel-stack {
+  min-height: 500px;
+}
+.main-dialog-header {
+  margin-top: 5px;
+  margin-left: 5px;
+}
+.btn-holder {
+  float: right;
+  margin-top: -23px;
+  margin-right: -20px;
+}
+.project-btns {
+  margin: 0px 5px 10px 0px;
 }

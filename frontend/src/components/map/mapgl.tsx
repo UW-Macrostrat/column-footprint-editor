@@ -21,7 +21,12 @@ import { ImportDialog } from "../importer";
 
 import { locationFromHash } from "./utils";
 import "./map.css";
-import { initializeMap, propertyViewMap, editModeMap } from "./map-pieces";
+import {
+  initializeMap,
+  propertyViewMap,
+  editModeMap,
+  MapToolsControl,
+} from "./map-pieces";
 
 /**
  *
@@ -167,25 +172,34 @@ export function Map() {
     }
   }, [state.columns, edit, mapRef]);
 
+  const mapToolsClassName = edit
+    ? "map-tools-control-left"
+    : "map-tools-control-right";
+
   return (
     <div>
       <ImportDialog />
       <div>
         <MapNavBar
-          draw={drawRef.current}
-          addToChangeSet={addToChangeSet}
           onSave={onSave}
           onCancel={onCancel}
           enterEditMode={() => setEdit(true)}
           enterPropertyMode={() => setEdit(false)}
           editMode={edit}
           project_id={state.project.project_id}
-          legendColumns={legendColumns}
         />
       </div>
 
       <div>
         <div className="map-container" ref={mapContainerRef} />
+      </div>
+      <div className={mapToolsClassName}>
+        <MapToolsControl
+          draw={drawRef.current}
+          addToChangeSet={addToChangeSet}
+          columns={legendColumns}
+          editMode={edit}
+        />
       </div>
       {edit ? null : (
         <div>
