@@ -37,6 +37,7 @@ class ProjectsAPI(HTTPEndpoint):
 
         params = dict(id = data.get('identity_id', None), col_name = data['col_name'])
         params = {**params, **dict(col_group_id = data['col_group_id'])}
+        params['description'] = data['description']
         params['project_id'] = project_id
         params['location'] = json.dumps(data['location'])
 
@@ -49,8 +50,9 @@ class ProjectsAPI(HTTPEndpoint):
         except error:
             print(error)
             return JSONResponse({"status": "error", "message": f'{error}'})
-        
-        return JSONResponse({"statue": f'success'})
+
+        params['location'] = data['location']
+        return JSONResponse({"statue": f'success', "project": params})
     
     async def post(self, request):
         res = await request.json()
