@@ -1,3 +1,5 @@
+NOTE: This application is being integrated into the [Macrostrat](https://github.com/UW-Macrostrat/macrostrat) and [web](https://github.com/UW-Macrostrat/web) repositories. It is now archived.
+
 # Topology Editing
 
 ## NOTE: This now depends upon a microservice in [this](https://github.com/UW-Macrostrat/column-builder/tree/develop) repository. It will no longer run independently.
